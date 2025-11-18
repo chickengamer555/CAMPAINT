@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAMPAINT - Paint with Your Camera!</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Bubblegum+Sans&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        body {
+            font-family: 'Bubblegum Sans', cursive;
+            background:
+                repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.05) 10px, rgba(255,255,255,.05) 20px),
+                linear-gradient(135deg, #F2B5D4 0%, #7AE7C7 25%, #3F88C5 50%, #FF4242 75%, #F2FF49 100%);
+            background-size: 100% 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        body.fullscreen-active {
+            overflow: hidden;
+        }
+
+        h1 {
+            font-family: 'Fredoka One', cursive;
+            font-size: 4em;
+            color: #F2FF49;
+            margin-bottom: 20px;
+            text-shadow:
+                4px 4px 0px #FF4242,
+                8px 8px 0px #F2B5D4,
+                12px 12px 20px rgba(0,0,0,0.5);
+            letter-spacing: 3px;
+            transform: rotate(-2deg);
+            animation: titleBounce 2s ease-in-out infinite;
+        }
+
+        @keyframes titleBounce {
+            0%, 100% { transform: rotate(-2deg) translateY(0px); }
+            50% { transform: rotate(-2deg) translateY(-10px); }
+        }
+
+        .container {
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+            border-radius: 30px;
+            padding: 30px;
+            box-shadow:
+                0 10px 40px rgba(0,0,0,0.3),
+                inset 0 -5px 20px rgba(0,0,0,0.1);
+            max-width: 1200px;
+            width: 100%;
+            border: 5px dashed #7AE7C7;
+            position: relative;
+        }
+
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            font-family: 'Bubblegum Sans', cursive;
+            padding: 15px 30px;
+            font-size: 18px;
+            border: 4px solid #000;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 700;
+            box-shadow: 5px 5px 0px #000;
+            position: relative;
+            text-transform: uppercase;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translate(-2px, -2px);
+            box-shadow: 7px 7px 0px #000;
+        }
+
+        button:active:not(:disabled) {
+            transform: translate(2px, 2px);
+            box-shadow: 3px 3px 0px #000;
+        }
+
+        #startBtn {
+            background: linear-gradient(145deg, #4ECDC4, #44A08D);
+            color: white;
+        }
+
+        #stopBtn {
+            background: linear-gradient(145deg, #FF4242, #E63946);
+            color: white;
+        }
+
+        #fullscreenBtn {
+            background: linear-gradient(145deg, #A8E6CF, #56CCF2);
+            color: white;
+        }
+
+        #startBtn:disabled, #stopBtn:disabled, #fullscreenBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 960px;
+            margin: 0 auto;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .video-container.showing-painting {
+            background: #fff;
+        }
+
+        .video-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            max-width: 100vw;
+            border-radius: 0;
+            z-index: 9999;
+            margin: 0;
+            padding: 0;
+        }
+
+        .video-container.fullscreen video,
+        .video-container.fullscreen canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* Fullscreen toggle button - top left */
+        .fullscreen-toggle-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: all 0.3s;
+            pointer-events: auto;
+        }
+
+        /* Show fullscreen button when NOT in fullscreen and painting is active */
+        .video-container:not(.fullscreen):not(.showing-painting) .fullscreen-toggle-btn {
+            display: flex;
+        }
+
+        /* Show exit button when IN fullscreen */
+        .video-container.fullscreen .fullscreen-toggle-btn {
+            display: flex;
+        }
+
+        /* Show fullscreen button when showing painting (and apply dark styling) */
+        .video-container.showing-painting .fullscreen-toggle-btn {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-color: rgba(0, 0, 0, 0.6);
+            color: black;
+        }
+
+        .video-container.showing-painting .fullscreen-toggle-btn.hovering {
+            background: rgba(76, 175, 80, 0.8);
+            border-color: #4CAF50;
+            color: white;
+        }
+
+        .fullscreen-toggle-btn.hovering {
+            background: rgba(76, 175, 80, 0.8);
+            border-color: #4CAF50;
+        }
+
+        .fullscreen-toggle-btn .progress-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .fullscreen-toggle-btn .progress-ring circle {
+            fill: none;
+            stroke: #4CAF50;
+            stroke-width: 3;
+            stroke-dasharray: 170;
+            stroke-dashoffset: 170;
+            transition: stroke-dashoffset 0.1s linear;
+        }
+
+        /* Color picker button - top right */
+        .color-picker-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: black;
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: all 0.3s;
+            pointer-events: none;
+        }
+
+        /* Paint button - top center-left */
+        .paint-btn {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            margin-left: -150px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #4CAF50;
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: all 0.3s;
+            pointer-events: auto;
+            font-size: 28px;
+        }
+
+        .paint-btn.active {
+            border-color: #4CAF50;
+            border-width: 4px;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.6);
+        }
+
+        /* Erase button - top center-right */
+        .erase-btn {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            margin-left: 90px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #FF5722;
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: all 0.3s;
+            pointer-events: auto;
+            font-size: 28px;
+        }
+
+        .erase-btn.active {
+            border-color: #FF5722;
+            border-width: 4px;
+            box-shadow: 0 0 20px rgba(255, 87, 34, 0.6);
+        }
+
+        /* Brush size slider - left side */
+        .brush-size-slider-container {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 60px;
+            height: 300px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 30px;
+            padding: 20px 10px;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10000;
+            pointer-events: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .brush-size-label {
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .brush-size-slider {
+            position: relative;
+            width: 8px;
+            height: 200px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .brush-size-handle {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 24px;
+            height: 24px;
+            background: white;
+            border: 3px solid #4CAF50;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .brush-size-handle:hover {
+            transform: translateX(-50%) scale(1.2);
+        }
+
+        .brush-size-value {
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        /* Hide brush size slider in canvas mode */
+        .video-container.showing-painting ~ .controls .brush-size-slider-container {
+            display: none !important;
+        }
+
+        /* Brush size indicator */
+        .brush-indicator {
+            position: fixed;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 9999;
+            display: none;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .brush-indicator.paint-mode {
+            border-color: rgba(76, 175, 80, 0.8);
+            background: rgba(76, 175, 80, 0.2);
+        }
+
+        .brush-indicator.erase-mode {
+            border-color: rgba(255, 87, 34, 0.8);
+            background: rgba(255, 87, 34, 0.2);
+        }
+
+        .paint-btn.hovering,
+        .erase-btn.hovering {
+            transform: scale(1.1);
+        }
+
+        .paint-btn .progress-ring,
+        .erase-btn .progress-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .paint-btn .progress-ring circle,
+        .erase-btn .progress-ring circle {
+            fill: none;
+            stroke: white;
+            stroke-width: 3;
+            stroke-dasharray: 170;
+            stroke-dashoffset: 170;
+            transition: stroke-dashoffset 0.1s linear;
+        }
+
+        .color-picker-btn.hovering {
+            border-color: #4CAF50;
+            border-width: 4px;
+        }
+
+        /* Only apply canvas-mode styling when showing painting (not during active painting) */
+        .video-container.showing-painting .color-picker-btn {
+            border-color: rgba(0, 0, 0, 0.6);
+        }
+
+        .video-container.showing-painting .color-picker-btn.hovering {
+            border-color: #4CAF50;
+        }
+
+        /* Hide paint and erase buttons when showing painting */
+        .video-container.showing-painting .paint-btn,
+        .video-container.showing-painting .erase-btn {
+            display: none;
+        }
+
+        /* Apply dark styling to paint/erase buttons when showing painting */
+        .video-container.showing-painting .paint-btn,
+        .video-container.showing-painting .erase-btn {
+            border-color: rgba(0, 0, 0, 0.6);
+        }
+
+        .video-container.showing-painting .paint-btn.hovering,
+        .video-container.showing-painting .erase-btn.hovering {
+            border-color: #4CAF50;
+        }
+
+        .color-picker-btn .progress-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+
+        .color-picker-btn .progress-ring circle {
+            fill: none;
+            stroke: #4CAF50;
+            stroke-width: 3;
+            stroke-dasharray: 170;
+            stroke-dashoffset: 170;
+            transition: stroke-dashoffset 0.1s linear;
+        }
+
+        /* Color picker modal */
+        .color-picker-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.75);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            z-index: 10001;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            max-width: 95vw;
+            max-height: 95vh;
+            overflow: visible;
+        }
+
+        /* Fullscreen mode - larger color picker */
+        .video-container.fullscreen .color-picker-modal {
+            padding: 40px;
+            gap: 30px;
+            max-width: none;
+            max-height: none;
+        }
+
+        .color-picker-modal.active {
+            display: flex;
+        }
+
+        .color-picker-modal h3 {
+            margin: 0;
+            text-align: center;
+            color: #333;
+            font-size: 18px;
+        }
+
+        /* Fullscreen mode - larger title */
+        .video-container.fullscreen .color-picker-modal h3 {
+            font-size: 24px;
+        }
+
+        .color-picker-content {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: nowrap;
+            justify-content: center;
+        }
+
+        /* Fullscreen mode - larger gap */
+        .video-container.fullscreen .color-picker-content {
+            gap: 30px;
+        }
+
+        .color-wheel-container {
+            position: relative;
+            width: 250px;
+            height: 250px;
+        }
+
+        /* Fullscreen mode - larger color wheel */
+        .video-container.fullscreen .color-wheel-container {
+            width: 400px;
+            height: 400px;
+        }
+
+        #colorWheelCanvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .color-selector-dot {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s ease;
+        }
+
+        /* Fullscreen mode - larger selector dot */
+        .video-container.fullscreen .color-selector-dot {
+            width: 30px;
+            height: 30px;
+            border: 4px solid white;
+        }
+
+
+
+        .brightness-slider-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .brightness-slider-container label {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        /* Fullscreen mode - larger label */
+        .video-container.fullscreen .brightness-slider-container label {
+            font-size: 16px;
+        }
+
+        .brightness-slider {
+            width: 50px;
+            height: 200px;
+            position: relative;
+            border-radius: 25px;
+            background: linear-gradient(to bottom, white, black);
+            border: 2px solid #ccc;
+            cursor: pointer;
+        }
+
+        /* Fullscreen mode - larger brightness slider */
+        .video-container.fullscreen .brightness-slider {
+            width: 60px;
+            height: 300px;
+            border-radius: 30px;
+            border: 3px solid #ccc;
+        }
+
+        .brightness-handle {
+            position: absolute;
+            width: 100%;
+            height: 25px;
+            background: white;
+            border: 3px solid #666;
+            border-radius: 12px;
+            left: 0;
+            transform: translateY(-50%);
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.1s ease;
+        }
+
+        /* Fullscreen mode - larger brightness handle */
+        .video-container.fullscreen .brightness-handle {
+            height: 30px;
+            border: 4px solid #666;
+            border-radius: 15px;
+        }
+
+        .done-picker-btn {
+            width: 200px;
+            height: 60px;
+            padding: 15px;
+            margin-top: 40px;
+            background: #4CAF50;
+            color: white;
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 600;
+            transition: all 0.3s;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Fullscreen mode - larger done button */
+        .video-container.fullscreen .done-picker-btn {
+            width: 300px;
+            height: 80px;
+            padding: 20px;
+            margin-top: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.5);
+            border-radius: 15px;
+            font-size: 24px;
+        }
+
+        .done-picker-btn.hovering {
+            background: #45a049;
+            border-color: #4CAF50;
+            transform: scale(1.05);
+        }
+
+        .done-picker-btn .progress-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+
+        .done-picker-btn .progress-ring rect {
+            fill: none;
+            stroke: white;
+            stroke-width: 3;
+            transition: stroke-dashoffset 0.1s linear;
+        }
+
+        /* Fullscreen mode - thicker progress ring */
+        .video-container.fullscreen .done-picker-btn .progress-ring rect {
+            stroke-width: 4;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+            transform: scaleX(-1);
+        }
+
+        /* Base canvas styling - applies to all canvases */
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            object-fit: contain;
+        }
+
+        /* Video overlay canvas - for hand tracking visualization (z-index: 1) */
+        #canvasOverlay {
+            z-index: 1;
+        }
+
+        /* Painting canvas - for persistent drawing (z-index: 2, on top) */
+        #canvasPainting {
+            z-index: 2;
+        }
+
+        canvas.painting-only {
+            position: relative;
+            width: 100%;
+            height: auto;
+            display: block;
+            background-color: white;
+        }
+        
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 15px;
+            font-weight: 700;
+            font-size: 1.1em;
+            border: 3px solid #000;
+            box-shadow: 5px 5px 0px #000;
+        }
+
+        .status.active {
+            background: linear-gradient(135deg, #A8E6CF, #56CCF2);
+            color: #1a5f3f;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .status.inactive {
+            background: linear-gradient(135deg, #FFB6B9, #FEC8D8);
+            color: #8b0000;
+        }
+        
+        .info {
+            margin-top: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, #F2B5D4 0%, #F8D7E8 100%);
+            border-radius: 20px;
+            border: 4px solid #000;
+            box-shadow: 8px 8px 0px #000;
+            position: relative;
+        }
+
+
+        .info h3 {
+            font-family: 'Fredoka One', cursive;
+            color: #3F88C5;
+            margin-bottom: 15px;
+            font-size: 1.8em;
+            text-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+        }
+
+        .info ul {
+            margin-left: 20px;
+            color: #2d3436;
+            line-height: 1.8;
+        }
+
+        .info li {
+            margin: 10px 0;
+            font-size: 1.05em;
+        }
+
+        .info li strong {
+            color: #FF4242;
+        }
+    </style>
+</head>
+<body>
+    <h1>CAMPAINT</h1>
+
+    <div class="container">
+        <div class="controls">
+            <button id="startBtn">Start Painting</button>
+            <button id="editPaintingBtn" style="display: none; background: linear-gradient(145deg, #FF9800, #FF6F00); color: white; border: 4px solid #000; box-shadow: 5px 5px 0px #000;">✏️ Edit Painting</button>
+            <button id="stopBtn" disabled>Show My Painting</button>
+            <button id="saveBtn" style="display: none; background: linear-gradient(145deg, #9C27B0, #7B1FA2); color: white; border: 4px solid #000; box-shadow: 5px 5px 0px #000;">💾 Save as JPG</button>
+        </div>
+        
+        <div class="video-container">
+            <video id="video" autoplay playsinline></video>
+            <!-- Separate canvases for layering - prevents flicker! -->
+            <canvas id="canvasOverlay"></canvas>  <!-- Layer 1: Video overlay (hand tracking) -->
+            <canvas id="canvasPainting"></canvas> <!-- Layer 2: Persistent painting (NEVER cleared during tracking) -->
+            <button id="fullscreenToggleBtn" class="fullscreen-toggle-btn">
+                <svg class="progress-ring" viewBox="0 0 60 60">
+                    <circle cx="30" cy="30" r="27"></circle>
+                </svg>
+                <span id="fullscreenIcon">⛶</span>
+            </button>
+            <button id="colorPickerBtn" class="color-picker-btn">
+                <svg class="progress-ring" viewBox="0 0 60 60">
+                    <circle cx="30" cy="30" r="27"></circle>
+                </svg>
+            </button>
+            <button id="paintBtn" class="paint-btn active">
+                <svg class="progress-ring" viewBox="0 0 60 60">
+                    <circle cx="30" cy="30" r="27"></circle>
+                </svg>
+                <span>🖌️</span>
+            </button>
+            <button id="eraseBtn" class="erase-btn">
+                <svg class="progress-ring" viewBox="0 0 60 60">
+                    <circle cx="30" cy="30" r="27"></circle>
+                </svg>
+                <span>🧽</span>
+            </button>
+
+            <!-- Brush Size Slider -->
+            <div id="brushSizeSliderContainer" class="brush-size-slider-container">
+                <div class="brush-size-label">Brush<br>Size</div>
+                <div class="brush-size-slider" id="brushSizeSlider">
+                    <div class="brush-size-handle" id="brushSizeHandle"></div>
+                </div>
+                <div class="brush-size-value" id="brushSizeValue">1</div>
+            </div>
+
+            <!-- Brush Size Indicator -->
+            <div id="brushIndicator" class="brush-indicator"></div>
+
+            <div id="colorPickerModal" class="color-picker-modal">
+                <h3>Choose Your Color</h3>
+                <div class="color-picker-content">
+                    <div class="color-wheel-container">
+                        <canvas id="colorWheelCanvas" width="400" height="400"></canvas>
+                        <div class="color-selector-dot" id="colorSelectorDot"></div>
+                    </div>
+                    <div class="brightness-slider-container">
+                        <label>Brightness</label>
+                        <div class="brightness-slider" id="brightnessSlider">
+                            <div class="brightness-handle" id="brightnessHandle"></div>
+                        </div>
+                    </div>
+                </div>
+                <button class="done-picker-btn" id="donePickerBtn">
+                    <svg class="progress-ring" viewBox="0 0 100 100" preserveAspectRatio="none">
+                        <rect x="2" y="2" width="96" height="96" rx="8" stroke-width="2" fill="none"></rect>
+                    </svg>
+                    <span>✓ Done</span>
+                </button>
+            </div>
+        </div>
+        
+        <div id="status" class="status inactive">
+            Camera: Inactive
+        </div>
+        
+        <div class="info">
+            <h3>How to Use CAMPAINT</h3>
+            <ul>
+                <li><strong>Point any finger up</strong> (index, middle, ring, or pinky) to paint with your selected color</li>
+                <li>Use multiple fingers at once to draw with multiple points!</li>
+                <li><strong>Make a fist and hover</strong> over the 🖌️ Paint button (right side) for 1 second to switch to paint mode</li>
+                <li><strong>Make a fist and hover</strong> over the 🧽 Erase button (right side) for 1 second to switch to erase mode</li>
+                <li><strong>Make a fist and hover</strong> over the color button (top right) for 1 second to open the color picker</li>
+                <li><strong>In color picker:</strong> Point your finger at the color wheel to select a color, and at the brightness slider to adjust brightness</li>
+                <li><strong>Make a fist and hover</strong> over the "Done" button for 1 second to close the color picker and continue painting</li>
+                <li>Move your fingers around to draw amazing art!</li>
+                <li>Click <strong>"Show My Painting"</strong> to see your artwork on a white canvas</li>
+                <li>Click <strong>"Start New Painting"</strong> to clear and start fresh, or <strong>"Edit Painting"</strong> to continue!</li>
+                <li>Click <strong>"💾 Save as JPG"</strong> to download your masterpiece!</li>
+                <li><strong>In fullscreen:</strong> Make a fist and hover over the X button (top left) for 1 second to exit</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- MediaPipe Hands - runs entirely in browser for zero latency -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="tracker.js"></script>
+</body>
+</html>
+
