@@ -1711,8 +1711,7 @@ async function startCamera() {
             // Initialize both canvas dimensions
             initCanvasDimensions(video.videoWidth, video.videoHeight);
 
-            // Show video and both canvases
-            video.style.display = 'block';
+            // Show canvases (video stays hidden via CSS)
             canvasOverlay.style.display = 'block';
             canvasPainting.style.display = 'block';
 
