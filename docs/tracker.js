@@ -1674,18 +1674,39 @@ async function startCamera() {
         console.log('Requesting camera access...');
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
+                width: { ideal: 1280, min: 640 },
+                height: { ideal: 720, min: 480 },
                 facingMode: 'user'
             }
         });
 
+        console.log('✅ Camera stream obtained - checking video tracks...');
+        const videoTracks = stream.getVideoTracks();
+        console.log('Video tracks:', videoTracks.length);
+        if (videoTracks.length > 0) {
+            const settings = videoTracks[0].getSettings();
+            console.log('Camera settings:', settings);
+        }
+
         console.log('Camera stream obtained');
         video.srcObject = stream;
+
+        // Add play event to check if video is actually rendering
+        video.onplay = () => {
+            console.log('▶️ Video is playing');
+        };
 
         video.onloadedmetadata = () => {
             console.log('=== VIDEO LOADED METADATA ===');
             console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+
+            // Force video to play if it hasn't started
+            if (video.paused) {
+                console.log('⚠️ Video is paused, attempting to play...');
+                video.play().catch(err => {
+                    console.error('❌ Failed to play video:', err);
+                });
+            }
 
             // Initialize both canvas dimensions
             initCanvasDimensions(video.videoWidth, video.videoHeight);
