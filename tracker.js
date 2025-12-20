@@ -1683,12 +1683,19 @@ async function startCamera() {
             }
         });
 
-        console.log('Camera stream obtained');
+        console.log('✅ Camera stream obtained');
+        console.log('Stream tracks:', stream.getVideoTracks());
         video.srcObject = stream;
+
+        // FORCE video to play
+        await video.play().catch(e => console.error('Error playing video:', e));
+        console.log('✅ Video.play() called');
 
         video.onloadedmetadata = () => {
             console.log('=== VIDEO LOADED METADATA ===');
             console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+            console.log('Video readyState:', video.readyState);
+            console.log('Video paused:', video.paused);
 
             // Initialize both canvas dimensions
             initCanvasDimensions(video.videoWidth, video.videoHeight);
