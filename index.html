@@ -676,8 +676,10 @@
             height: auto;
             display: block;
             transform: scaleX(-1);
-            /* EMERGENCY FIX: Make video fully visible to see what's happening */
-            position: relative;
+            /* Fixed positioning to work with absolute canvases */
+            position: absolute;
+            top: 0;
+            left: 0;
             z-index: 0;
         }
 
