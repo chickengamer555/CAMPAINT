@@ -27,16 +27,41 @@ class ThreadedCamera:
     """Threaded camera capture to eliminate frame buffer lag"""
     def __init__(self, src=0, width=640, height=480):
         print(f"🎥 Opening camera {src}...", flush=True)
-        self.cap = cv2.VideoCapture(src, cv2.CAP_DSHOW)  # Use DirectShow on Windows for better compatibility
 
-        if not self.cap.isOpened():
-            print(f"❌ Failed to open camera with DirectShow, trying default backend...", flush=True)
-            self.cap = cv2.VideoCapture(src)
+        # Try multiple backends for maximum compatibility
+        backends = [
+            (cv2.CAP_DSHOW, "DirectShow"),
+            (cv2.CAP_MSMF, "Media Foundation"),
+            (cv2.CAP_ANY, "Default")
+        ]
 
-        if not self.cap.isOpened():
-            raise RuntimeError(f"Could not open camera {src}")
+        self.cap = None
+        for backend, name in backends:
+            print(f"   Trying {name} backend...", flush=True)
+            try:
+                self.cap = cv2.VideoCapture(src, backend)
+                if self.cap.isOpened():
+                    # Test if we can actually read a frame
+                    ret, test_frame = self.cap.read()
+                    if ret and test_frame is not None:
+                        print(f"✅ Camera opened successfully with {name}!", flush=True)
+                        break
+                    else:
+                        print(f"   {name} opened but can't read frames", flush=True)
+                        self.cap.release()
+                        self.cap = None
+                else:
+                    print(f"   {name} failed to open", flush=True)
+            except Exception as e:
+                print(f"   {name} error: {e}", flush=True)
+                if self.cap:
+                    self.cap.release()
+                self.cap = None
 
-        print(f"✅ Camera opened successfully!", flush=True)
+        if self.cap is None or not self.cap.isOpened():
+            raise RuntimeError(f"❌ CRITICAL: Could not open camera {src} with any backend!")
+
+        print(f"✅ Camera is working!", flush=True)
 
         # Set properties with error handling (some cameras don't support all properties)
         try:
