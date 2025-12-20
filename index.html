@@ -676,10 +676,9 @@
             height: auto;
             display: block;
             transform: scaleX(-1);
-            position: absolute;
-            opacity: 0.01;
-            pointer-events: none;
-            z-index: -1;
+            /* EMERGENCY FIX: Make video fully visible to see what's happening */
+            position: relative;
+            z-index: 0;
         }
 
         /* Base canvas styling - applies to all canvases */
