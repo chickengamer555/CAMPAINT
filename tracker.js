@@ -6,14 +6,14 @@ const video = document.getElementById('video');
 const canvasOverlay = document.getElementById('canvasOverlay');
 const ctxOverlay = canvasOverlay.getContext('2d', {
     alpha: true,
-    desynchronized: true
+    desynchronized: false  // FIXED: Changed to false to prevent black screen on modern GPUs
 });
 
 // Canvas 2: Painting canvas for persistent drawing (NEVER cleared during tracking)
 const canvasPainting = document.getElementById('canvasPainting');
 const ctxPainting = canvasPainting.getContext('2d', {
     alpha: true,
-    desynchronized: true,
+    desynchronized: false,  // FIXED: Changed to false to prevent black screen on modern GPUs
     willReadFrequently: true  // PERFORMANCE FIX: Optimize for getImageData operations
 });
 
@@ -1245,11 +1245,14 @@ function onResults(results) {
     ctxOverlay.clearRect(0, 0, canvasOverlay.width, canvasOverlay.height);
 
     // Draw video frame (mirrored) on overlay canvas
-    // PERFORMANCE: Use save/restore instead of setTransform for better performance
-    ctxOverlay.save();
-    ctxOverlay.scale(-1, 1);
-    ctxOverlay.drawImage(results.image, -canvasOverlay.width, 0, canvasOverlay.width, canvasOverlay.height);
-    ctxOverlay.restore();
+    // FIXED: Added frame validation to prevent black screen
+    if (results.image && results.image.width > 0 && results.image.height > 0) {
+        // PERFORMANCE: Use save/restore instead of setTransform for better performance
+        ctxOverlay.save();
+        ctxOverlay.scale(-1, 1);
+        ctxOverlay.drawImage(results.image, -canvasOverlay.width, 0, canvasOverlay.width, canvasOverlay.height);
+        ctxOverlay.restore();
+    }
 
     // Check for button hovers and interactions
     let isHoveringFullscreen = false;
