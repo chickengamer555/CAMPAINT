@@ -674,7 +674,7 @@
 
         video {
             width: 100%;
-            height: auto;
+            height: 100%;
             display: block;
             transform: scaleX(-1);
             /* Fixed positioning to work with absolute canvases */
@@ -682,6 +682,7 @@
             top: 0;
             left: 0;
             z-index: 0;
+            object-fit: cover;
         }
 
         /* Base canvas styling - applies to all canvases */
