@@ -6,14 +6,14 @@ const video = document.getElementById('video');
 const canvasOverlay = document.getElementById('canvasOverlay');
 const ctxOverlay = canvasOverlay.getContext('2d', {
     alpha: true,
-    desynchronized: true
+    desynchronized: false  // Prevents black screen on Chrome with modern GPUs
 });
 
 // Canvas 2: Painting canvas for persistent drawing (NEVER cleared during tracking)
 const canvasPainting = document.getElementById('canvasPainting');
 const ctxPainting = canvasPainting.getContext('2d', {
     alpha: true,
-    desynchronized: true,
+    desynchronized: false,  // Prevents black screen on Chrome with modern GPUs
     willReadFrequently: true  // PERFORMANCE FIX: Optimize for getImageData operations
 });
 
@@ -467,12 +467,69 @@ eraseBtn.addEventListener('click', setEraseMode);
 // Brush size slider event listeners
 if (brushSizeSlider && brushSizeHandle) {
     brushSizeSlider.addEventListener('mousedown', handleBrushSliderMouseDown);
-    brushSizeSlider.addEventListener('touchstart', handleBrushSliderMouseDown);
+    brushSizeSlider.addEventListener('touchstart', handleBrushSliderMouseDown, { passive: false });
     document.addEventListener('mousemove', handleBrushSliderMouseMove);
-    document.addEventListener('touchmove', handleBrushSliderMouseMove);
+    document.addEventListener('touchmove', handleBrushSliderMouseMove, { passive: false });
     document.addEventListener('mouseup', handleBrushSliderMouseUp);
     document.addEventListener('touchend', handleBrushSliderMouseUp);
 }
+
+// Prevent pinch zoom and double-tap zoom on mobile
+document.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+let lastTouchEnd = 0;
+document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+    }
+    lastTouchEnd = now;
+}, { passive: false });
+
+// Add touch event handlers for color picker controls
+if (colorWheelCanvas) {
+    colorWheelCanvas.addEventListener('touchstart', handleColorWheelTouch, { passive: false });
+    colorWheelCanvas.addEventListener('touchmove', handleColorWheelTouch, { passive: false });
+}
+
+if (brightnessSlider) {
+    brightnessSlider.addEventListener('touchstart', handleBrightnessTouch, { passive: false });
+    brightnessSlider.addEventListener('touchmove', handleBrightnessTouch, { passive: false });
+}
+
+// Touch event handlers
+function handleColorWheelTouch(e) {
+    e.preventDefault();
+    if (e.touches && e.touches.length > 0) {
+        const touch = e.touches[0];
+        handleColorWheelInteraction(touch.clientX, touch.clientY);
+    }
+}
+
+function handleBrightnessTouch(e) {
+    e.preventDefault();
+    if (e.touches && e.touches.length > 0) {
+        const touch = e.touches[0];
+        handleBrightnessSliderInteraction(touch.clientX, touch.clientY);
+    }
+}
+
+// Orientation change handler
+window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+        if (video.videoWidth && video.videoHeight) {
+            initCanvasDimensions(video.videoWidth, video.videoHeight);
+        }
+        // Re-initialize UI elements
+        initDoneButtonProgressRing();
+        updateSelectorDotPosition();
+        updateBrightnessSlider();
+    }, 100);
+});
 
 // Color picker button click
 colorPickerBtn.addEventListener('click', () => {
@@ -507,6 +564,9 @@ window.addEventListener('resize', () => {
     updateBrightnessSlider();
 });
 
+// Detect mobile devices
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
 // Initialize MediaPipe Hands
 function initMediaPipe() {
     // PERFORMANCE FIX: Close existing hands instance before creating new one
@@ -530,11 +590,12 @@ function initMediaPipe() {
         }
     });
 
+    // Mobile-optimized settings
     hands.setOptions({
-        maxNumHands: 2,
+        maxNumHands: isMobile ? 1 : 2,  // Limit to 1 hand on mobile for better performance
         modelComplexity: 0,  // 0 = Lite (fastest), 1 = Full
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        minDetectionConfidence: isMobile ? 0.6 : 0.5,  // Slightly higher threshold on mobile
+        minTrackingConfidence: isMobile ? 0.6 : 0.5
     });
 
     hands.onResults(onResults);
@@ -1246,10 +1307,13 @@ function onResults(results) {
 
     // Draw video frame (mirrored) on overlay canvas
     // PERFORMANCE: Use save/restore instead of setTransform for better performance
-    ctxOverlay.save();
-    ctxOverlay.scale(-1, 1);
-    ctxOverlay.drawImage(results.image, -canvasOverlay.width, 0, canvasOverlay.width, canvasOverlay.height);
-    ctxOverlay.restore();
+    // CRITICAL: Validate frame before drawing to prevent black screen
+    if (results.image && results.image.width > 0 && results.image.height > 0) {
+        ctxOverlay.save();
+        ctxOverlay.scale(-1, 1);
+        ctxOverlay.drawImage(results.image, -canvasOverlay.width, 0, canvasOverlay.width, canvasOverlay.height);
+        ctxOverlay.restore();
+    }
 
     // Check for button hovers and interactions
     let isHoveringFullscreen = false;
@@ -1672,46 +1736,28 @@ async function startCamera() {
         }
 
         console.log('Requesting camera access...');
+        // Mobile-optimized camera constraints
         const stream = await navigator.mediaDevices.getUserMedia({
             video: {
-                width: { ideal: 1280, min: 640 },
-                height: { ideal: 720, min: 480 },
-                facingMode: 'user'
+                width: { ideal: isMobile ? 720 : 1280 },
+                height: { ideal: isMobile ? 480 : 720 },
+                facingMode: 'user',
+                frameRate: { ideal: 30, max: 30 }  // Limit frame rate on mobile for battery
             }
         });
 
-        console.log('✅ Camera stream obtained - checking video tracks...');
-        const videoTracks = stream.getVideoTracks();
-        console.log('Video tracks:', videoTracks.length);
-        if (videoTracks.length > 0) {
-            const settings = videoTracks[0].getSettings();
-            console.log('Camera settings:', settings);
-        }
-
         console.log('Camera stream obtained');
         video.srcObject = stream;
-
-        // Add play event to check if video is actually rendering
-        video.onplay = () => {
-            console.log('▶️ Video is playing');
-        };
 
         video.onloadedmetadata = () => {
             console.log('=== VIDEO LOADED METADATA ===');
             console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
 
-            // Force video to play if it hasn't started
-            if (video.paused) {
-                console.log('⚠️ Video is paused, attempting to play...');
-                video.play().catch(err => {
-                    console.error('❌ Failed to play video:', err);
-                });
-            }
-
             // Initialize both canvas dimensions
             initCanvasDimensions(video.videoWidth, video.videoHeight);
 
-            // Show canvases (video stays hidden via CSS)
+            // Show video and both canvases
+            video.style.display = 'block';
             canvasOverlay.style.display = 'block';
             canvasPainting.style.display = 'block';
 
